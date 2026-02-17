@@ -50,8 +50,6 @@ async def main() -> None:
     async def on_startup() -> None:
         logger.info("Starting scheduler...")
         await scheduler_service.start()
-        logger.info("Checking for missed greetings...")
-        await scheduler_service.check_missed_greetings()
         me = await bot.get_me()
         logger.info("Bot started: @%s", me.username)
 

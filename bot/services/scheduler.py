@@ -7,7 +7,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from bot.db.repositories import Repository
 from bot.services.greeting import GreetingService
-from bot.utils.date_helpers import today_date_str, today_in_timezone
+from bot.utils.date_helpers import today_in_timezone
 
 logger = logging.getLogger(__name__)
 
@@ -62,11 +62,8 @@ class SchedulerService:
 
         tz = channel["timezone"]
         day, month = today_in_timezone(tz)
-        date_str = today_date_str(tz)
 
-        birthdays = await self._repo.get_ungreeted_birthdays(
-            channel_id, day, month, date_str
-        )
+        birthdays = await self._repo.get_birthdays_by_date(channel_id, day, month)
 
         for bd in birthdays:
             try:
@@ -78,46 +75,9 @@ class SchedulerService:
                     bd["birth_day"],
                     bd["birth_month"],
                 )
-                await self._repo.log_greeting(channel_id, bd["user_id"], date_str)
             except Exception:
                 logger.exception(
                     "Failed to send greeting in channel %d for user %d",
                     channel_id,
                     bd["user_id"],
                 )
-
-    async def check_missed_greetings(self) -> None:
-        """Check all channels for today's ungreeted birthdays. Called on startup."""
-        channels = await self._repo.get_all_channels()
-        total_sent = 0
-
-        for ch in channels:
-            tz = ch["timezone"]
-            day, month = today_in_timezone(tz)
-            date_str = today_date_str(tz)
-
-            ungreeted = await self._repo.get_ungreeted_birthdays(
-                ch["id"], day, month, date_str
-            )
-
-            for bd in ungreeted:
-                try:
-                    await self._greeting.send_greeting(
-                        ch["id"],
-                        bd["user_id"],
-                        bd["username"],
-                        bd["first_name"],
-                        bd["birth_day"],
-                        bd["birth_month"],
-                    )
-                    await self._repo.log_greeting(ch["id"], bd["user_id"], date_str)
-                    total_sent += 1
-                except Exception:
-                    logger.exception(
-                        "Failed belated greeting in channel %d for user %d",
-                        ch["id"],
-                        bd["user_id"],
-                    )
-
-        if total_sent:
-            logger.info("Sent %d belated greetings on startup", total_sent)

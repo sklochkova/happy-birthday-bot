@@ -45,13 +45,6 @@ CREATE TABLE IF NOT EXISTS known_users (
     PRIMARY KEY (user_id, channel_id)
 );
 
-CREATE TABLE IF NOT EXISTS greetings_log (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    channel_id      INTEGER NOT NULL,
-    user_id         INTEGER NOT NULL,
-    greeted_on      TEXT    NOT NULL,
-    UNIQUE(channel_id, user_id, greeted_on)
-);
 """
 
 

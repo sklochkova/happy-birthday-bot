@@ -63,9 +63,3 @@ def today_in_timezone(tz_name: str) -> tuple[int, int]:
     """Return today's (day, month) in the given timezone."""
     now = datetime.datetime.now(ZoneInfo(tz_name))
     return now.day, now.month
-
-
-def today_date_str(tz_name: str) -> str:
-    """Return today's date as YYYY-MM-DD string in the given timezone."""
-    now = datetime.datetime.now(ZoneInfo(tz_name))
-    return now.date().isoformat()
