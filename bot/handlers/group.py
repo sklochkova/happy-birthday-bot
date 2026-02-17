@@ -7,7 +7,7 @@ from bot.config import settings
 from bot.db.repositories import Repository
 from bot.middlewares.auth import UserTrackingMiddleware
 from bot.services.birthday import BirthdayService
-from bot.utils.date_helpers import format_birthday, parse_birthday
+from bot.utils.date_helpers import format_birthday, format_birthday_list, parse_birthday
 
 router = Router(name="group")
 router.message.filter(F.chat.type.in_({ChatType.GROUP, ChatType.SUPERGROUP}))
@@ -97,11 +97,7 @@ async def cmd_birthdays(
         return
 
     lines = ["🎂 <b>Birthdays in this chat:</b>\n"]
-    for bd in birthdays:
-        name = bd["first_name"] or "Unknown"
-        username_part = f" (@{bd['username']})" if bd["username"] else ""
-        date_str = format_birthday(bd["birth_day"], bd["birth_month"])
-        lines.append(f"  {date_str} — {name}{username_part}")
+    lines.extend(format_birthday_list(birthdays))
 
     await message.answer("\n".join(lines))
 

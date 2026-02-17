@@ -19,7 +19,8 @@ from bot.services.admin import AdminService
 from bot.services.birthday import BirthdayService
 from bot.services.scheduler import SchedulerService
 from bot.states.admin_fsm import AdminFSM
-from bot.utils.date_helpers import format_birthday, parse_birthday
+from bot.utils.date_helpers import format_birthday, format_birthday_list, parse_birthday
+from bot.utils.user_resolver import resolve_user
 
 router = Router(name="dm_admin")
 router.message.filter(F.chat.type == ChatType.PRIVATE)
@@ -130,11 +131,7 @@ async def on_list_birthdays(
         text = "No birthdays registered in this channel yet."
     else:
         lines = ["🎂 <b>Birthdays:</b>\n"]
-        for bd in birthdays:
-            name = bd["first_name"] or "Unknown"
-            username_part = f" (@{bd['username']})" if bd["username"] else ""
-            date_str = format_birthday(bd["birth_day"], bd["birth_month"])
-            lines.append(f"  {date_str} — {name}{username_part} [ID: {bd['user_id']}]")
+        lines.extend(format_birthday_list(birthdays, show_id=True))
         text = "\n".join(lines)
 
     await callback.message.edit_text(text, reply_markup=build_admin_menu_kb())
@@ -211,58 +208,34 @@ async def on_add_birthday_user(
         return
 
     text = message.text.strip() if message.text else ""
+    data = await state.get_data()
+    channel_id = data["channel_id"]
 
-    # Support @username lookup
-    if text.startswith("@"):
-        username = text[1:]
-        if not username:
-            await message.answer("Please send a valid @username.")
-            return
-        data = await state.get_data()
-        channel_id = data["channel_id"]
-        known = await repo.find_user_by_username(channel_id, username)
-        if not known:
+    resolved = await resolve_user(text, channel_id, repo)
+    if not resolved:
+        if text.startswith("@"):
             await message.answer(
-                f"User @{username} not found in the channel cache.\n"
+                f"User {text} not found in the channel cache.\n"
                 "The user must have sent at least one message in the group "
                 "after the bot was added.\n\n"
                 "You can also use a numeric user ID or forward a message from the user."
             )
-            return
-        await state.update_data(
-            target_user_id=known["user_id"],
-            target_first_name=known["first_name"],
-            target_username=known["username"],
-        )
-        await state.set_state(AdminFSM.add_birthday_date)
-        name_display = known["first_name"] or f"@{username}"
-        await message.answer(
-            f"Got it! Setting birthday for <b>{name_display}</b> (ID: {known['user_id']}).\n"
-            f"Now send the date in DD.MM format."
-        )
+        else:
+            await message.answer(
+                "Please send a @username, numeric user ID, or forward a message from the user."
+            )
         return
-
-    # Otherwise try to parse numeric ID
-    if not text.isdigit():
-        await message.answer(
-            "Please send a @username, numeric user ID, or forward a message from the user."
-        )
-        return
-
-    user_id = int(text)
-
-    # Try to enrich with cached user info
-    data = await state.get_data()
-    known = await repo.find_user_by_id(data["channel_id"], user_id)
-    first_name = known["first_name"] if known else None
-    username = known["username"] if known else None
 
     await state.update_data(
-        target_user_id=user_id, target_first_name=first_name, target_username=username
+        target_user_id=resolved.user_id,
+        target_first_name=resolved.first_name,
+        target_username=resolved.username,
     )
     await state.set_state(AdminFSM.add_birthday_date)
-    name_display = first_name or f"user ID {user_id}"
-    await message.answer(f"Setting birthday for <b>{name_display}</b> (ID: {user_id}).\nNow send the date in DD.MM format.")
+    await message.answer(
+        f"Got it! Setting birthday for <b>{resolved.display}</b> (ID: {resolved.user_id}).\n"
+        f"Now send the date in DD.MM format."
+    )
 
 
 @router.message(AdminFSM.add_birthday_date)
@@ -313,41 +286,28 @@ async def on_remove_birthday_user(
     data = await state.get_data()
     channel_id = data["channel_id"]
 
-    # Support @username lookup
-    if text.startswith("@"):
-        username = text[1:]
-        if not username:
-            await message.answer("Please send a valid @username.")
-            return
-        known = await repo.find_user_by_username(channel_id, username)
-        if not known:
+    resolved = await resolve_user(text, channel_id, repo)
+    if not resolved:
+        if text.startswith("@"):
             await message.answer(
-                f"User @{username} not found in the channel cache.\n"
+                f"User {text} not found in the channel cache.\n"
                 "Try using a numeric user ID instead."
             )
-            return
-        user_id = known["user_id"]
-        display = f"@{username} (ID: {user_id})"
-    elif text.isdigit():
-        user_id = int(text)
-        display = str(user_id)
-    else:
-        await message.answer(
-            "Please send a @username or numeric user ID."
-        )
+        else:
+            await message.answer("Please send a @username or numeric user ID.")
         return
 
-    removed = await birthday_service.remove_birthday(channel_id, user_id)
+    removed = await birthday_service.remove_birthday(channel_id, resolved.user_id)
 
     await state.set_state(AdminFSM.main_menu)
     if removed:
         await message.answer(
-            f"✅ Birthday removed for user {display}.",
+            f"✅ Birthday removed for user {resolved.display}.",
             reply_markup=build_admin_menu_kb(),
         )
     else:
         await message.answer(
-            f"No birthday found for user {display}.",
+            f"No birthday found for user {resolved.display}.",
             reply_markup=build_admin_menu_kb(),
         )
 
@@ -374,24 +334,18 @@ async def on_edit_user_select(
     data = await state.get_data()
     channel_id = data["channel_id"]
 
-    if text.startswith("@"):
-        username = text[1:]
-        if not username:
-            await message.answer("Please send a valid @username.")
-            return
-        known = await repo.find_user_by_username(channel_id, username)
-        if not known:
+    resolved = await resolve_user(text, channel_id, repo)
+    if not resolved:
+        if text.startswith("@"):
             await message.answer(
-                f"User @{username} not found in the channel cache.\n"
+                f"User {text} not found in the channel cache.\n"
                 "Try using a numeric user ID instead."
             )
-            return
-        user_id = known["user_id"]
-    elif text.isdigit():
-        user_id = int(text)
-    else:
-        await message.answer("Please send a @username or numeric user ID.")
+        else:
+            await message.answer("Please send a @username or numeric user ID.")
         return
+
+    user_id = resolved.user_id
 
     # Check birthday exists
     bd = await repo.get_birthday(channel_id, user_id)

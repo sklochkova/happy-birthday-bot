@@ -59,6 +59,26 @@ def format_birthday(day: int, month: int) -> str:
     return f"{day} {month_name(month)}"
 
 
+def format_birthday_list(
+    birthdays: list[dict], *, show_id: bool = False
+) -> list[str]:
+    """Format a list of birthday records into display lines.
+
+    Each line is like '  15 June — Name (@username)'.
+    If show_id is True, appends ' [ID: 123]' to each line.
+    """
+    lines: list[str] = []
+    for bd in birthdays:
+        name = bd["first_name"] or "Unknown"
+        username_part = f" (@{bd['username']})" if bd["username"] else ""
+        date_str = format_birthday(bd["birth_day"], bd["birth_month"])
+        line = f"  {date_str} — {name}{username_part}"
+        if show_id:
+            line += f" [ID: {bd['user_id']}]"
+        lines.append(line)
+    return lines
+
+
 def today_in_timezone(tz_name: str) -> tuple[int, int]:
     """Return today's (day, month) in the given timezone."""
     now = datetime.datetime.now(ZoneInfo(tz_name))
