@@ -81,8 +81,10 @@ async def on_channel_selected(
 async def on_add_birthday(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(AdminFSM.add_birthday_user)
     await callback.message.edit_text(
-        "Send me the user ID (numeric) of the person whose birthday you want to set.\n\n"
-        "💡 Tip: you can forward a message from that user and I'll detect their ID."
+        "Send me the user to set birthday for:\n\n"
+        "• <b>@username</b> — if the user has sent a message in the group\n"
+        "• <b>numeric user ID</b>\n"
+        "• <b>forward a message</b> from that user"
     )
     await callback.answer()
 
@@ -91,7 +93,9 @@ async def on_add_birthday(callback: CallbackQuery, state: FSMContext) -> None:
 async def on_remove_birthday(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(AdminFSM.remove_birthday_user)
     await callback.message.edit_text(
-        "Send me the user ID (numeric) of the person whose birthday you want to remove."
+        "Send me the user whose birthday you want to remove:\n\n"
+        "• <b>@username</b>\n"
+        "• <b>numeric user ID</b>"
     )
     await callback.answer()
 
@@ -143,7 +147,9 @@ async def on_set_timezone(callback: CallbackQuery, state: FSMContext) -> None:
 
 
 @router.message(AdminFSM.add_birthday_user)
-async def on_add_birthday_user(message: Message, state: FSMContext) -> None:
+async def on_add_birthday_user(
+    message: Message, state: FSMContext, repo: Repository
+) -> None:
     # Support forwarded messages to detect user ID
     if message.forward_from:
         user_id = message.forward_from.id
@@ -162,11 +168,42 @@ async def on_add_birthday_user(message: Message, state: FSMContext) -> None:
         )
         return
 
-    # Otherwise try to parse numeric ID
     text = message.text.strip() if message.text else ""
+
+    # Support @username lookup
+    if text.startswith("@"):
+        username = text[1:]
+        if not username:
+            await message.answer("Please send a valid @username.")
+            return
+        data = await state.get_data()
+        channel_id = data["channel_id"]
+        known = await repo.find_user_by_username(channel_id, username)
+        if not known:
+            await message.answer(
+                f"User @{username} not found in the channel cache.\n"
+                "The user must have sent at least one message in the group "
+                "after the bot was added.\n\n"
+                "You can also use a numeric user ID or forward a message from the user."
+            )
+            return
+        await state.update_data(
+            target_user_id=known["user_id"],
+            target_first_name=known["first_name"],
+            target_username=known["username"],
+        )
+        await state.set_state(AdminFSM.add_birthday_date)
+        name_display = known["first_name"] or f"@{username}"
+        await message.answer(
+            f"Got it! Setting birthday for <b>{name_display}</b> (ID: {known['user_id']}).\n"
+            f"Now send the date in DD.MM format."
+        )
+        return
+
+    # Otherwise try to parse numeric ID
     if not text.isdigit():
         await message.answer(
-            "Please send a numeric user ID, or forward a message from the user."
+            "Please send a @username, numeric user ID, or forward a message from the user."
         )
         return
 
@@ -220,24 +257,47 @@ async def on_remove_birthday_user(
     message: Message,
     state: FSMContext,
     birthday_service: BirthdayService,
+    repo: Repository,
 ) -> None:
     text = message.text.strip() if message.text else ""
-    if not text.isdigit():
-        await message.answer("Please send a numeric user ID.")
+    data = await state.get_data()
+    channel_id = data["channel_id"]
+
+    # Support @username lookup
+    if text.startswith("@"):
+        username = text[1:]
+        if not username:
+            await message.answer("Please send a valid @username.")
+            return
+        known = await repo.find_user_by_username(channel_id, username)
+        if not known:
+            await message.answer(
+                f"User @{username} not found in the channel cache.\n"
+                "Try using a numeric user ID instead."
+            )
+            return
+        user_id = known["user_id"]
+        display = f"@{username} (ID: {user_id})"
+    elif text.isdigit():
+        user_id = int(text)
+        display = str(user_id)
+    else:
+        await message.answer(
+            "Please send a @username or numeric user ID."
+        )
         return
 
-    data = await state.get_data()
-    removed = await birthday_service.remove_birthday(data["channel_id"], int(text))
+    removed = await birthday_service.remove_birthday(channel_id, user_id)
 
     await state.set_state(AdminFSM.main_menu)
     if removed:
         await message.answer(
-            f"✅ Birthday removed for user {text}.",
+            f"✅ Birthday removed for user {display}.",
             reply_markup=build_admin_menu_kb(),
         )
     else:
         await message.answer(
-            f"No birthday found for user {text}.",
+            f"No birthday found for user {display}.",
             reply_markup=build_admin_menu_kb(),
         )
 

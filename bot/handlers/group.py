@@ -5,6 +5,7 @@ from aiogram.types import Message
 
 from bot.config import settings
 from bot.db.repositories import Repository
+from bot.middlewares.auth import UserTrackingMiddleware
 from bot.services.birthday import BirthdayService
 from bot.utils.date_helpers import format_birthday, parse_birthday
 
@@ -12,6 +13,7 @@ router = Router(name="group")
 router.message.filter(
     lambda message: message.chat.type in (ChatType.GROUP, ChatType.SUPERGROUP)
 )
+router.message.outer_middleware(UserTrackingMiddleware())
 
 
 @router.message(Command("start"))

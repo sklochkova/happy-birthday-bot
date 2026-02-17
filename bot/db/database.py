@@ -36,6 +36,15 @@ CREATE TABLE IF NOT EXISTS admins (
     UNIQUE(channel_id, user_id)
 );
 
+CREATE TABLE IF NOT EXISTS known_users (
+    user_id         INTEGER NOT NULL,
+    channel_id      INTEGER NOT NULL,
+    username        TEXT,
+    first_name      TEXT,
+    updated_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, channel_id)
+);
+
 CREATE TABLE IF NOT EXISTS greetings_log (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     channel_id      INTEGER NOT NULL,

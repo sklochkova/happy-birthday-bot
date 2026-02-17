@@ -162,6 +162,41 @@ class Repository:
         )
         return [dict(r) for r in await cursor.fetchall()]
 
+    # ── Known Users ────────────────────────────────────────────────────
+
+    async def upsert_known_user(
+        self,
+        user_id: int,
+        channel_id: int,
+        username: str | None,
+        first_name: str | None,
+    ) -> None:
+        await self._db.conn.execute(
+            """
+            INSERT INTO known_users (user_id, channel_id, username, first_name, updated_at)
+            VALUES (?, ?, ?, ?, datetime('now'))
+            ON CONFLICT(user_id, channel_id) DO UPDATE SET
+                username = excluded.username,
+                first_name = excluded.first_name,
+                updated_at = excluded.updated_at
+            """,
+            (user_id, channel_id, username, first_name),
+        )
+        await self._db.conn.commit()
+
+    async def find_user_by_username(
+        self, channel_id: int, username: str
+    ) -> dict[str, Any] | None:
+        cursor = await self._db.conn.execute(
+            """
+            SELECT * FROM known_users
+            WHERE channel_id = ? AND username = ? COLLATE NOCASE
+            """,
+            (channel_id, username),
+        )
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
     # ── Greetings Log ─────────────────────────────────────────────────
 
     async def log_greeting(
