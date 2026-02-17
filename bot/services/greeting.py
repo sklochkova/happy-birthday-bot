@@ -126,7 +126,7 @@ class GreetingService:
         month: int,
     ) -> None:
         text = random.choice(DEFAULT_TEMPLATES)
-        rendered = self._render(text, first_name, username, day, month)
+        rendered = self._render(text, first_name, username, day, month, user_id)
         await self._bot.send_message(channel_id, rendered)
 
         logger.info(
@@ -142,13 +142,18 @@ class GreetingService:
         username: str | None,
         day: int,
         month: int,
+        user_id: int,
     ) -> str:
-        name = first_name or "друг"
-        user_tag = f"@{username}" if username else name
+        if username:
+            name = f"@{username}"
+        elif first_name:
+            name = f'<a href="tg://user?id={user_id}">{first_name}</a>'
+        else:
+            name = "друг"
         try:
             return text.format(
                 name=name,
-                username=user_tag,
+                username=f"@{username}" if username else name,
                 day=day,
                 month=month_name(month),
             )
