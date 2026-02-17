@@ -141,6 +141,24 @@ async def on_list_birthdays(
     await callback.answer()
 
 
+@router.callback_query(AdminActionCB.filter(F.action == "settings"), AdminFSM.main_menu)
+async def on_settings(
+    callback: CallbackQuery, state: FSMContext, repo: Repository
+) -> None:
+    data = await state.get_data()
+    channel = await repo.get_channel(data["channel_id"])
+    if not channel:
+        await callback.answer("Channel not found.", show_alert=True)
+        return
+    text = (
+        f"⚙️ <b>Settings for {data.get('channel_title', channel['id'])}</b>\n\n"
+        f"🕐 Greeting time: <b>{channel['greeting_time']}</b>\n"
+        f"🌍 Timezone: <b>{channel['timezone']}</b>"
+    )
+    await callback.message.edit_text(text, reply_markup=build_admin_menu_kb())
+    await callback.answer()
+
+
 @router.callback_query(AdminActionCB.filter(F.action == "set_time"), AdminFSM.main_menu)
 async def on_set_time(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(AdminFSM.set_time)
@@ -332,6 +350,118 @@ async def on_remove_birthday_user(
             f"No birthday found for user {display}.",
             reply_markup=build_admin_menu_kb(),
         )
+
+
+# ── Edit user flow ───────────────────────────────────────────────────
+
+
+@router.callback_query(AdminActionCB.filter(F.action == "edit_user"), AdminFSM.main_menu)
+async def on_edit_user(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(AdminFSM.edit_user_select)
+    await callback.message.edit_text(
+        "Send me the user whose info you want to edit:\n\n"
+        "• <b>@username</b>\n"
+        "• <b>numeric user ID</b>"
+    )
+    await callback.answer()
+
+
+@router.message(AdminFSM.edit_user_select)
+async def on_edit_user_select(
+    message: Message, state: FSMContext, repo: Repository
+) -> None:
+    text = message.text.strip() if message.text else ""
+    data = await state.get_data()
+    channel_id = data["channel_id"]
+
+    if text.startswith("@"):
+        username = text[1:]
+        if not username:
+            await message.answer("Please send a valid @username.")
+            return
+        known = await repo.find_user_by_username(channel_id, username)
+        if not known:
+            await message.answer(
+                f"User @{username} not found in the channel cache.\n"
+                "Try using a numeric user ID instead."
+            )
+            return
+        user_id = known["user_id"]
+    elif text.isdigit():
+        user_id = int(text)
+    else:
+        await message.answer("Please send a @username or numeric user ID.")
+        return
+
+    # Check birthday exists
+    bd = await repo.get_birthday(channel_id, user_id)
+    if not bd:
+        await message.answer(
+            f"No birthday found for user {user_id}. Add one first.",
+            reply_markup=build_admin_menu_kb(),
+        )
+        await state.set_state(AdminFSM.main_menu)
+        return
+
+    current_name = bd["first_name"] or "not set"
+    current_username = f"@{bd['username']}" if bd["username"] else "not set"
+    await state.update_data(edit_user_id=user_id)
+    await state.set_state(AdminFSM.edit_user_name)
+    await message.answer(
+        f"Editing user ID {user_id}:\n"
+        f"  Name: <b>{current_name}</b>\n"
+        f"  Username: <b>{current_username}</b>\n\n"
+        "Send new info in format:\n"
+        "<b>FirstName @username</b>\n\n"
+        "Examples:\n"
+        "  <code>John @johndoe</code>\n"
+        "  <code>Иван @ivan</code>\n"
+        "  <code>Anna</code> (name only, no username)"
+    )
+
+
+@router.message(AdminFSM.edit_user_name)
+async def on_edit_user_name(
+    message: Message, state: FSMContext, repo: Repository
+) -> None:
+    text = message.text.strip() if message.text else ""
+    if not text:
+        await message.answer("Please send a name (and optionally @username).")
+        return
+
+    # Parse: "FirstName @username" or just "FirstName"
+    parts = text.split()
+    username = None
+    name_parts = []
+    for part in parts:
+        if part.startswith("@"):
+            username = part[1:]
+        else:
+            name_parts.append(part)
+
+    first_name = " ".join(name_parts) if name_parts else None
+
+    if not first_name and not username:
+        await message.answer("Please provide at least a name or @username.")
+        return
+
+    data = await state.get_data()
+    channel_id = data["channel_id"]
+    user_id = data["edit_user_id"]
+
+    await repo.update_birthday_user_info(channel_id, user_id, username, first_name)
+
+    display_parts = []
+    if first_name:
+        display_parts.append(f"name: <b>{first_name}</b>")
+    if username:
+        display_parts.append(f"username: <b>@{username}</b>")
+
+    await state.set_state(AdminFSM.main_menu)
+    await message.answer(
+        f"✅ Updated user {user_id}: {', '.join(display_parts)}",
+        reply_markup=build_admin_menu_kb(),
+    )
 
 
 # ── Set time flow ─────────────────────────────────────────────────────

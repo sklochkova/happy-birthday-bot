@@ -147,6 +147,23 @@ class Repository:
         await self._db.conn.commit()
         return cursor.rowcount > 0
 
+    async def update_birthday_user_info(
+        self,
+        channel_id: int,
+        user_id: int,
+        username: str | None,
+        first_name: str | None,
+    ) -> bool:
+        cursor = await self._db.conn.execute(
+            """
+            UPDATE birthdays SET username = ?, first_name = ?
+            WHERE channel_id = ? AND user_id = ?
+            """,
+            (username, first_name, channel_id, user_id),
+        )
+        await self._db.conn.commit()
+        return cursor.rowcount > 0
+
     # ── Admins ────────────────────────────────────────────────────────
 
     async def add_admin(

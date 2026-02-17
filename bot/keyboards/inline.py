@@ -32,8 +32,10 @@ def build_admin_menu_kb() -> InlineKeyboardMarkup:
         ("➕ Add birthday", "add_bd"),
         ("➖ Remove birthday", "rm_bd"),
         ("📋 List birthdays", "list_bd"),
+        ("✏️ Edit user", "edit_user"),
         ("🕐 Set greeting time", "set_time"),
         ("🌍 Set timezone", "set_tz"),
+        ("⚙️ Settings", "settings"),
         ("🔄 Switch channel", "switch_ch"),
     ]
     for text, action in actions:
