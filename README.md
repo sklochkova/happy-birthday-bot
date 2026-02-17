@@ -9,7 +9,6 @@ A Telegram bot that tracks birthdays of group participants and automatically pos
 - **Admin mode** — designated admins manage birthdays for others via DM
 - **Scheduled greetings** — configurable time and timezone per channel
 - **100 built-in greetings** — warm Russian-language templates, picked at random
-- **Belated recovery** — sends missed greetings on bot restart
 
 ## Quick Start
 
@@ -67,8 +66,8 @@ Add the bot to a Telegram group and send `/start`.
 
 | Command | Description |
 |---------|-------------|
-| `/grantadmin USER_ID` | Grant admin role (select channel first via `/admin`) |
-| `/revokeadmin USER_ID` | Revoke admin role |
+| `/grantadmin @user` or `USER_ID` | Grant admin role (select channel first via `/admin`) |
+| `/revokeadmin @user` or `USER_ID` | Revoke admin role |
 
 ## Configuration
 
