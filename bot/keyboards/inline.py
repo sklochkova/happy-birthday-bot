@@ -1,0 +1,49 @@
+from aiogram.filters.callback_data import CallbackData
+from aiogram.types import InlineKeyboardMarkup
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+
+class ChannelSelectCB(CallbackData, prefix="ch_sel"):
+    channel_id: int
+
+
+class AdminActionCB(CallbackData, prefix="adm_act"):
+    action: str
+
+
+class ConfirmCB(CallbackData, prefix="confirm"):
+    value: str
+
+
+def build_channel_select_kb(channels: list[dict]) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    for ch in channels:
+        builder.button(
+            text=ch["title"] or f"Chat {ch['id']}",
+            callback_data=ChannelSelectCB(channel_id=ch["id"]),
+        )
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def build_admin_menu_kb() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    actions = [
+        ("➕ Add birthday", "add_bd"),
+        ("➖ Remove birthday", "rm_bd"),
+        ("📋 List birthdays", "list_bd"),
+        ("🕐 Set greeting time", "set_time"),
+        ("🌍 Set timezone", "set_tz"),
+    ]
+    for text, action in actions:
+        builder.button(text=text, callback_data=AdminActionCB(action=action))
+    builder.adjust(2)
+    return builder.as_markup()
+
+
+def build_confirm_kb() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="✅ Confirm", callback_data=ConfirmCB(value="yes"))
+    builder.button(text="❌ Cancel", callback_data=ConfirmCB(value="no"))
+    builder.adjust(2)
+    return builder.as_markup()
