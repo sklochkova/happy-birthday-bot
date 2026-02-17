@@ -93,9 +93,14 @@ class Repository:
     ) -> list[dict[str, Any]]:
         cursor = await self._db.conn.execute(
             """
-            SELECT * FROM birthdays
-            WHERE channel_id = ?
-            ORDER BY birth_month, birth_day
+            SELECT b.*,
+                   COALESCE(k.first_name, b.first_name) AS first_name,
+                   COALESCE(k.username, b.username)     AS username
+            FROM birthdays b
+            LEFT JOIN known_users k
+                ON k.user_id = b.user_id AND k.channel_id = b.channel_id
+            WHERE b.channel_id = ?
+            ORDER BY b.birth_month, b.birth_day
             """,
             (channel_id,),
         )
@@ -106,8 +111,14 @@ class Repository:
     ) -> list[dict[str, Any]]:
         cursor = await self._db.conn.execute(
             """
-            SELECT * FROM birthdays
-            WHERE channel_id = ? AND birth_day = ? AND birth_month = ?
+            SELECT b.*,
+                   COALESCE(k.first_name, b.first_name) AS first_name,
+                   COALESCE(k.username, b.username)     AS username
+            FROM birthdays b
+            LEFT JOIN known_users k
+                ON k.user_id = b.user_id AND k.channel_id = b.channel_id
+            WHERE b.channel_id = ?
+                AND b.birth_day = ? AND b.birth_month = ?
             """,
             (channel_id, day, month),
         )
@@ -229,7 +240,12 @@ class Repository:
     ) -> list[dict[str, Any]]:
         cursor = await self._db.conn.execute(
             """
-            SELECT b.* FROM birthdays b
+            SELECT b.*,
+                   COALESCE(k.first_name, b.first_name) AS first_name,
+                   COALESCE(k.username, b.username)     AS username
+            FROM birthdays b
+            LEFT JOIN known_users k
+                ON k.user_id = b.user_id AND k.channel_id = b.channel_id
             LEFT JOIN greetings_log g
                 ON g.channel_id = b.channel_id
                 AND g.user_id = b.user_id
