@@ -32,7 +32,7 @@ async def main() -> None:
     await db.connect()
 
     repo = Repository(db)
-    admin_service = AdminService(repo, settings.bot_owner_id)
+    admin_service = AdminService(repo, settings.bot_owner_id, bot)
     birthday_service = BirthdayService(repo)
     greeting_service = GreetingService(bot)
     scheduler_service = SchedulerService(repo, greeting_service)
