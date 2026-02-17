@@ -232,11 +232,19 @@ async def on_add_birthday_user(
         return
 
     user_id = int(text)
+
+    # Try to enrich with cached user info
+    data = await state.get_data()
+    known = await repo.find_user_by_id(data["channel_id"], user_id)
+    first_name = known["first_name"] if known else None
+    username = known["username"] if known else None
+
     await state.update_data(
-        target_user_id=user_id, target_first_name=None, target_username=None
+        target_user_id=user_id, target_first_name=first_name, target_username=username
     )
     await state.set_state(AdminFSM.add_birthday_date)
-    await message.answer(f"Setting birthday for user ID {user_id}.\nNow send the date in DD.MM format.")
+    name_display = first_name or f"user ID {user_id}"
+    await message.answer(f"Setting birthday for <b>{name_display}</b> (ID: {user_id}).\nNow send the date in DD.MM format.")
 
 
 @router.message(AdminFSM.add_birthday_date)

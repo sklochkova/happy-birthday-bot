@@ -223,3 +223,13 @@ class Repository:
         row = await cursor.fetchone()
         return dict(row) if row else None
 
+    async def find_user_by_id(
+        self, channel_id: int, user_id: int
+    ) -> dict[str, Any] | None:
+        cursor = await self._db.conn.execute(
+            "SELECT * FROM known_users WHERE channel_id = ? AND user_id = ?",
+            (channel_id, user_id),
+        )
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
