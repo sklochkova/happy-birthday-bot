@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.enums import ChatType
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
@@ -13,7 +13,7 @@ from bot.services.admin import AdminService
 from bot.states.admin_fsm import AdminFSM
 
 router = Router(name="owner")
-router.message.filter(lambda message: message.chat.type == ChatType.PRIVATE)
+router.message.filter(F.chat.type == ChatType.PRIVATE)
 router.message.middleware(OwnerAuthMiddleware())
 
 

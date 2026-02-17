@@ -22,8 +22,8 @@ from bot.states.admin_fsm import AdminFSM
 from bot.utils.date_helpers import format_birthday, parse_birthday
 
 router = Router(name="dm_admin")
-router.message.filter(lambda message: message.chat.type == ChatType.PRIVATE)
-router.callback_query.filter(lambda cb: cb.message.chat.type == ChatType.PRIVATE)
+router.message.filter(F.chat.type == ChatType.PRIVATE)
+router.callback_query.filter(F.message.chat.type == ChatType.PRIVATE)
 
 
 # ── /admin — entry point ──────────────────────────────────────────────

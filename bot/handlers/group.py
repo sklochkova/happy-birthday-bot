@@ -1,4 +1,4 @@
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.enums import ChatType
 from aiogram.filters import Command, CommandObject
 from aiogram.types import Message
@@ -10,9 +10,7 @@ from bot.services.birthday import BirthdayService
 from bot.utils.date_helpers import format_birthday, parse_birthday
 
 router = Router(name="group")
-router.message.filter(
-    lambda message: message.chat.type in (ChatType.GROUP, ChatType.SUPERGROUP)
-)
+router.message.filter(F.chat.type.in_({ChatType.GROUP, ChatType.SUPERGROUP}))
 router.message.outer_middleware(UserTrackingMiddleware())
 
 
