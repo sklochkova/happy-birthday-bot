@@ -184,6 +184,14 @@ async def on_add_birthday_user(
         )
         return
 
+    # Forwarded message but user has privacy enabled — no user ID available
+    if message.forward_date or message.forward_sender_name:
+        await message.answer(
+            "This user has privacy settings that hide their identity in forwarded messages.\n\n"
+            "Please use <b>@username</b> or a <b>numeric user ID</b> instead."
+        )
+        return
+
     text = message.text.strip() if message.text else ""
 
     # Support @username lookup
