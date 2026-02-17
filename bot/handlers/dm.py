@@ -77,6 +77,22 @@ async def on_channel_selected(
 # ── Admin menu actions ────────────────────────────────────────────────
 
 
+@router.callback_query(AdminActionCB.filter(F.action == "switch_ch"), AdminFSM.main_menu)
+async def on_switch_channel(
+    callback: CallbackQuery, state: FSMContext, admin_service: AdminService
+) -> None:
+    channels = await admin_service.get_admin_channels(callback.from_user.id)
+    if len(channels) <= 1:
+        await callback.answer("You only have one channel.", show_alert=True)
+        return
+    await state.set_state(AdminFSM.select_channel)
+    await callback.message.edit_text(
+        "Select a channel to manage:",
+        reply_markup=build_channel_select_kb(channels),
+    )
+    await callback.answer()
+
+
 @router.callback_query(AdminActionCB.filter(F.action == "add_bd"), AdminFSM.main_menu)
 async def on_add_birthday(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(AdminFSM.add_birthday_user)

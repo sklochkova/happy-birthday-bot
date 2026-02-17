@@ -34,6 +34,7 @@ def build_admin_menu_kb() -> InlineKeyboardMarkup:
         ("📋 List birthdays", "list_bd"),
         ("🕐 Set greeting time", "set_time"),
         ("🌍 Set timezone", "set_tz"),
+        ("🔄 Switch channel", "switch_ch"),
     ]
     for text, action in actions:
         builder.button(text=text, callback_data=AdminActionCB(action=action))
