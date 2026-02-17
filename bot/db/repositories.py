@@ -35,6 +35,21 @@ class Repository:
         cursor = await self._db.conn.execute("SELECT * FROM channels")
         return [dict(r) for r in await cursor.fetchall()]
 
+    async def remove_channel(self, chat_id: int) -> None:
+        await self._db.conn.execute(
+            "DELETE FROM birthdays WHERE channel_id = ?", (chat_id,)
+        )
+        await self._db.conn.execute(
+            "DELETE FROM admins WHERE channel_id = ?", (chat_id,)
+        )
+        await self._db.conn.execute(
+            "DELETE FROM known_users WHERE channel_id = ?", (chat_id,)
+        )
+        await self._db.conn.execute(
+            "DELETE FROM channels WHERE id = ?", (chat_id,)
+        )
+        await self._db.conn.commit()
+
     async def update_channel_timezone(self, chat_id: int, timezone: str) -> None:
         await self._db.conn.execute(
             "UPDATE channels SET timezone = ? WHERE id = ?", (timezone, chat_id)
